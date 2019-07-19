@@ -10,8 +10,8 @@
 #define PI 3.1415926
 #define zenith 96
 
-const char* ssid     = "Shubhra";           //Name of Network
-const char* password = "SAVEBANDIT";        //Password of Network
+const char* ssid     = "WiFiName";         
+const char* password = "Password";        
 
 //RTC object
 RTC_DS3231 rtc;  
@@ -24,6 +24,7 @@ NTPClient timeClient(ntpUDP);
 HTTPClient http;
 
 //Variables to save latitude, longitude and timezone
+//Defaults to the coordinates of Delhi, India
 double lat=28.7041;
 double lng=77.1025;
 String timezone="+05:30";
@@ -120,7 +121,8 @@ void connect_WiFi()
 void geolocate()
 {
   // ipify.org url with api key to make geolocation request
-  http.begin("https://geo.ipify.org/api/v1?apiKey=at_zBZzZsnG3BFNoVhFf728WHldkesiE");
+  String key = "YOUR_API_KEY";
+  http.begin("https://geo.ipify.org/api/v1?apiKey="+key);
   int httpCode = http.GET();  //Make the request
   if (httpCode > 0)  //Check for the returning code 
   { 
