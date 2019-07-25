@@ -7,11 +7,19 @@
 #include <ArduinoJson.h>
 #include <LiquidCrystal_I2C.h>
 #include <math.h>
+#include <BluetoothSerial.h>
+
 #define PI 3.1415926
 #define zenith 96
 
-const char* ssid     = "WiFiName";         
-const char* password = "Password";        
+//Defining Bluetooth object
+BluetoothSerial bt;
+
+//WiFi Configuration
+int n;
+int id=-1;
+String ssid="";
+String pwd="";        
 
 //RTC object
 RTC_DS3231 rtc;  
@@ -32,13 +40,8 @@ String timezone="+05:30";
 //Variables to save sunset and sunrise
 DateTime sunrise, sunset;
 
-//Rows and Columns for I2C LCD
-int totalColumns = 16;
-int totalRows = 2;
-LiquidCrystal_I2C lcd(0x27, totalColumns, totalRows);
-
-//Pin to control relay
-int relayPin = 23;
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+int relayPin=23;
 
 void connect_WiFi();
 void geolocate();
@@ -49,7 +52,6 @@ void disp_date(DateTime);
 DateTime tw(DateTime, int);
 
 void setup () {
-  //Serial.begin(115200);
   pinMode(relayPin, OUTPUT);
   connect_WiFi();
   geolocate();
@@ -66,7 +68,6 @@ void loop () {
     DateTime now = rtc.now();
     if((now.hour()==0)&&(now.minute()==0)&&(now.second()==0))
     {
-      //Serial.println("\nSyncing with NTP");
       sync();
       sunrise=tw(now, 0);
       sunset=tw(now, 1);
@@ -104,25 +105,46 @@ void loop () {
 
 void connect_WiFi()
 {
-  //Serial.print("Connecting to ");
-  //Serial.println(ssid);
-  WiFi.begin(ssid, password);
-  int i=0;
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    //Serial.print(".");
-    if(i>10) break;
-    i++;
+  bt.begin("Twilight Indicator");
+  n = WiFi.scanNetworks();
+  while((bt.read()-48)!=1);
+  for(int i=0; i<=n;i++) 
+  { 
+    bt.print(WiFi.SSID(i));
+    delay(1000);
   }
-  //Serial.println("");
-  ///if(i>10) Serial.println("WiFi connected.");
+  do
+  {
+    id=bt.read();
+  }while(id==-1);
+  id=id-1;
+  ssid=WiFi.SSID(id);
+  if(WiFi.encryptionType(id)==WIFI_AUTH_OPEN)  
+  {
+    bt.print("1");
+    WiFi.begin(ssid.c_str());
+  }
+  else if(WiFi.encryptionType(id)!=WIFI_AUTH_OPEN)
+  {
+       bt.print("0");
+      do
+      {
+        pwd=bt.readString();
+      }while(pwd=="");
+      Serial.println(pwd.c_str());
+      WiFi.begin(ssid.c_str(),pwd.c_str());
+  }
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+  }  
+  bt.print("Connected");
 }
 
 void geolocate()
 {
   // ipify.org url with api key to make geolocation request
-  String key = "YOUR_API_KEY";
-  http.begin("https://geo.ipify.org/api/v1?apiKey="+key);
+  //String key = "YOUR_API_KEY";
+  http.begin("https://geo.ipify.org/api/v1?apiKey="/*+key*/);
   int httpCode = http.GET();  //Make the request
   if (httpCode > 0)  //Check for the returning code 
   { 
@@ -154,7 +176,6 @@ float getOffset(String tz)
 
 void sync()
 {
-  connect_WiFi();
   if(WiFi.status() != WL_CONNECTED) return;
   if (! rtc.begin()) {
     //Serial.println("Couldn't find RTC");
@@ -162,8 +183,7 @@ void sync()
   }
   timeClient.setTimeOffset(getOffset(timezone)*3600);
   while(!timeClient.update()) timeClient.forceUpdate();
-  long epochtime = timeClient.getEpochTime();
-  rtc.adjust(DateTime(epochtime));
+  rtc.adjust(DateTime(timeClient.getEpochTime()));
 }
 
 void disp_time(DateTime obj, int col, int row)
