@@ -5,9 +5,11 @@
 #include <NTPClient.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
-#include <LiquidCrystal_I2C.h>
 #include <math.h>
 #include <BluetoothSerial.h>
+#include <SPI.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 
 #define PI 3.1415926
 #define zenith 96
@@ -22,7 +24,7 @@ String ssid="";
 String pwd="";        
 
 //RTC object
-RTC_DS3231 rtc;  
+RTC_PCF8523 rtc;  
 
 // Defining NTP Client to get time
 WiFiUDP ntpUDP;
@@ -40,7 +42,7 @@ String timezone="+05:30";
 //Variables to save sunset and sunrise
 DateTime sunrise, sunset;
 
-LiquidCrystal_I2C lcd(0x27, 16, 2);
+Adafruit_SSD1306 display(128, 64, &Wire, -1);
 int relayPin=23;
 
 void connect_WiFi();
@@ -56,8 +58,12 @@ void setup () {
   connect_WiFi();
   geolocate();
   sync();
-  lcd.init();
-  lcd.backlight();
+  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3D for 128x64
+    for(;;);
+  }
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(WHITE);
   DateTime now = rtc.now();
   sunrise=tw(now, 0);
   sunset=tw(now, 1);
@@ -85,22 +91,22 @@ void loop () {
       digitalWrite(relayPin, LOW);
       flag=0;
     }
-    lcd.setCursor(0,0);
-    lcd.print("Date ");
+    display.setCursor(0,0);
+    display.print("Date ");
     disp_date(now);
-    lcd.setCursor(0,1);
-    lcd.print("Time ");
+    display.setCursor(0,1);
+    display.print("Time ");
     disp_time(now,5,1);
     delay(3000);
-    lcd.clear();
-    lcd.setCursor(0,0);
-    lcd.print("Sunrise ");
+    display.clearDisplay();
+    display.setCursor(0,0);
+    display.print("Sunrise ");
     disp_time(sunrise,8,0);
-    lcd.setCursor(0,1);
-    lcd.print("Sunset ");
+    display.setCursor(0,1);
+    display.print("Sunset ");
     disp_time(sunset,8,1);
     delay(3000);
-    lcd.clear();
+    display.clearDisplay();
 }
 
 void connect_WiFi()
@@ -188,30 +194,30 @@ void sync()
 
 void disp_time(DateTime obj, int col, int row)
 {
-  lcd.setCursor(col,row);
-  if(obj.hour()<10) lcd.print(0);
-  lcd.print(obj.hour());
-  lcd.setCursor(col+2,row);
-  lcd.print(':');
-  lcd.setCursor(col+3,row);
-  if(obj.minute()<10) lcd.print(0);
-  lcd.print(obj.minute());
+  display.setCursor(col,row);
+  if(obj.hour()<10) display.print(0);
+  display.print(obj.hour());
+  display.setCursor(col+2,row);
+  display.print(':');
+  display.setCursor(col+3,row);
+  if(obj.minute()<10) display.print(0);
+  display.print(obj.minute());
 }
 
 void disp_date(DateTime obj)
 {
-  lcd.setCursor(5,0);
-  if(obj.day()<10) lcd.print(0);
-  lcd.print(obj.day());
-  lcd.setCursor(7,0);
-  lcd.print('/');
-  lcd.setCursor(8,0);
-  if(obj.month()<10) lcd.print(0);
-  lcd.print(obj.month());
-  lcd.setCursor(10,0);
-  lcd.print('/');
-  lcd.setCursor(11,0);
-  lcd.print(obj.year());
+  display.setCursor(5,0);
+  if(obj.day()<10) display.print(0);
+  display.print(obj.day());
+  display.setCursor(7,0);
+  display.print('/');
+  display.setCursor(8,0);
+  if(obj.month()<10) display.print(0);
+  display.print(obj.month());
+  display.setCursor(10,0);
+  display.print('/');
+  display.setCursor(11,0);
+  display.print(obj.year());
 }
 
 DateTime tw(DateTime obj, int flag)
